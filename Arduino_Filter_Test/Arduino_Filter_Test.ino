@@ -80,4 +80,6 @@ void loop() {
       Serial.println();
     }
   }
+  
+  lastMS = currentMS;
 }
