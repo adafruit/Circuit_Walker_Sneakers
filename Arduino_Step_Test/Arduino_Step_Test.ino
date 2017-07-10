@@ -110,5 +110,11 @@ void loop() {
       }
       CircuitPlayground.strip.show();
     }
+    
+    // Update time of last sample.
+    lastSampleMS = currentMS;
   }
+  
+  // Update time of last frame.
+  lastMS = currentMS;
 }
