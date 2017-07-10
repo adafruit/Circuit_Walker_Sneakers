@@ -79,7 +79,11 @@ void loop() {
       Serial.print(filtered);
       Serial.println();
     }
+   
+    // Update time of last sample.
+    lastSampleMS = currentMS;
   }
   
+  // Update time of last frame.
   lastMS = currentMS;
 }
