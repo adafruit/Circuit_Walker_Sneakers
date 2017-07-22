@@ -1,34 +1,33 @@
-// Circuit Playground Circuit Walker Sneakers - Step Detection Test
+// Circuit Playground Circuit Walker Sneakers - Step Jerk Detection Test
 // Author: Tony DiCola
 // License: MIT License
 //
 // This sketch uses ideas from an adaptive step detection algorithm to
 // turn Circuit Playground into a pedometer/step detector.  When the board
 // detects a step with the accelerometer it will turn the LEDs on red for
-// a brief period of time (~half a second).  The sketch uses a simple low
-// pass filter and threshold approach to detect steps (i.e. simple and
-// non-adaptive) as mentioned in:
+// a brief period of time (~half a second).  The sketch uses the non-adaptive
+// step jerk theshold ('sjt') approach to detect steps as mentioned in:
 //   https://github.com/danielmurray/adaptiv
 //
 // You might need to tweak the THRESHOLD define below to your walking
 // style.  If it's too sensitive and flashing red too often try increasing
-// the threshold slightly above 1.1, or if it isn't sensitive enough try
-// decreasing the threshold below 1.1.
+// the threshold slightly above 0.15, or if it isn't sensitive enough try
+// decreasing the threshold below 0.15
 #include <Adafruit_CircuitPlayground.h>
 
 #include "IIRFilter.h"
 
 
 // Configuration values:
-#define  THRESHOLD           1.1     // Threshold for detecting a step.
-                                     // When the filtered accelerometer magnitude
-                                     // goes above this threshold then a step is
-                                     // detected.  Normally the accelerometer will
-                                     // see a magnitude of about 1.0 for 1G so set
-                                     // this slightly above, like 1.1, to detect a
-                                     // 'kick' of movement from step forward.  Tune
-                                     // the value up if it's too sensitive and down
-                                     // if not sensitive enough.
+#define  THRESHOLD           0.15    // Threshold for a 'dip' or 'jerk' in movement
+                                     // to be considered a step.  Increase this value
+                                     // to make the detection less sensitive and decrease
+                                     // to make more sensitive.
+
+#define  GRAVITY             1.0     // Baseline accelerometer magnitude to detect zero
+                                     // crossings in the filtered data.  Since the units
+                                     // are gravities and 1.0G is expected when between
+                                     // peak/trough keep this at 1.0 or very close to it.  
 
 #define  SAMPLE_RATE_HZ      50.0    // How quickly to sample the accelerometer.
                                      // Note that the filter is generated using
@@ -54,6 +53,10 @@ IIRFilter<4,4> filter((float[])FILTER_A, (float[])FILTER_B);  // The IIR filter 
 uint32_t lastMS = 0;           // Time of last loop iteration.
 uint32_t lastSampleMS = 0;     // Time of last accelerometer sample.
 int pixelClearMS = 0;      // Amount of time left before clearing the NeoPixels and turning them off.
+float lastTrough = GRAVITY;
+float lastPeak = GRAVITY;
+enum JerkState { ZERO, PEAK, TROUGH };
+JerkState currentState = ZERO;
 
 
 void setup() {
@@ -102,14 +105,49 @@ void loop() {
       Serial.println();
     }
 
-    // Turn on the NeoPixels red if the filtered magnitude exceeds the threshold.
-    if (filtered > THRESHOLD) {
-      pixelClearMS = STEP_FLASH_MS;
-      for (int i=0; i<10; ++i) {
-        CircuitPlayground.strip.setPixelColor(i, 255, 0, 0);
-      }
-      CircuitPlayground.strip.show();
+    // Compute step 'jerk', or the strength of a movement from up to down acceleration
+    // and vice-versa.  Once the jerk exceeds a threshold then a step is detected.
+    // First find the new jerk state, either a peak (acceleration above baseline gravity)
+    // or a trough (acceleration below baseline gravity).
+    JerkState newState = ZERO;
+    if (mag < GRAVITY) {
+      newState = TROUGH;
     }
+    else if (mag > GRAVITY) {
+      newState = PEAK;
+    }
+    if (newState == currentState) {
+      // No change in peak/trough state so just keep searching for the min trough value
+      // and maximum peak value.
+      if (newState == TROUGH) {
+        lastTrough = min(lastTrough, mag);
+      }
+      else if (newState == PEAK) {
+        lastPeak = max(lastPeak, mag);
+      }
+    }
+    else {
+      // Changed state from peak to trough or vice/versa.  Compute the 'jerk' or distance
+      // between trough and peak when we're coming out of a trough and into a peak.
+      if (newState == PEAK) {
+        float jerk = lastPeak - lastTrough;
+        //Serial.println(jerk, 6);
+        if (jerk > THRESHOLD) {
+          // Jerk exceeded the threshold, a step was detected!
+          // Turn on the lights.
+          pixelClearMS = STEP_FLASH_MS;
+          for (int i=0; i<10; ++i) {
+            CircuitPlayground.strip.setPixelColor(i, 255, 0, 0);
+          }
+          CircuitPlayground.strip.show();
+        }
+        // Be sure to reset the peak and trough min/max values for next state change.
+        lastPeak = mag;
+        lastTrough = GRAVITY;
+      }
+    }
+    // Update the current state to the new one so the next loop iteration detects changes.
+    currentState = newState;
     
     // Update time of last sample.
     lastSampleMS = currentMS;
