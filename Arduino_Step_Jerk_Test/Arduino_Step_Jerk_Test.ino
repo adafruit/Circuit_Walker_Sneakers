@@ -110,20 +110,20 @@ void loop() {
     // First find the new jerk state, either a peak (acceleration above baseline gravity)
     // or a trough (acceleration below baseline gravity).
     JerkState newState = ZERO;
-    if (mag < GRAVITY) {
+    if (filtered < GRAVITY) {
       newState = TROUGH;
     }
-    else if (mag > GRAVITY) {
+    else if (filtered > GRAVITY) {
       newState = PEAK;
     }
     if (newState == currentState) {
       // No change in peak/trough state so just keep searching for the min trough value
       // and maximum peak value.
       if (newState == TROUGH) {
-        lastTrough = min(lastTrough, mag);
+        lastTrough = min(lastTrough, filtered);
       }
       else if (newState == PEAK) {
-        lastPeak = max(lastPeak, mag);
+        lastPeak = max(lastPeak, filtered);
       }
     }
     else {
@@ -142,7 +142,7 @@ void loop() {
           CircuitPlayground.strip.show();
         }
         // Be sure to reset the peak and trough min/max values for next state change.
-        lastPeak = mag;
+        lastPeak = filtered;
         lastTrough = GRAVITY;
       }
     }
