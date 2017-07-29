@@ -83,6 +83,8 @@ def HSV_to_RGB(h, s, v):
     value from 0.0 to 1.0.  Returns a 3-tuple of gamma-corrected RGB color
     bytes (0-255).
     """
+    # This is adapted from C/C++ code here:
+    #  https://www.cs.rit.edu/~ncs/color/t_convert.html
     r = 0
     g = 0
     b = 0
@@ -91,7 +93,7 @@ def HSV_to_RGB(h, s, v):
         g = v
         b = v
     else:
-        h /= 60.0;      # sector 0 to 5
+        h /= 60.0       # sector 0 to 5
         i = int(math.floor(h))
         f = h - i       # factorial part of h
         p = v * ( 1.0 - s )
